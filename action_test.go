@@ -73,12 +73,12 @@ func TestParseUses(t *testing.T) {
 		},
 		{
 			name: "action pinned with hash",
-			line: "      - uses: actions/checkout@abc123def456abc123def456abc123def456abc12345",
+			line: "      - uses: actions/checkout@abc123def456abc123def456abc123def456abcd",
 			expected: pin.ActionReference{
 				Prefix:  "      - uses: ",
 				Owner:   "actions",
 				Repo:    "checkout",
-				Version: "abc123def456abc123def456abc123def456abc12345",
+				Version: "abc123def456abc123def456abc123def456abcd",
 			},
 			ok: true,
 		},
@@ -173,23 +173,23 @@ func TestNeedsPin(t *testing.T) {
 		},
 		{
 			name:     "already pinned with hash",
-			version:  "abc123def456abc123def456abc123def456abc12345",
+			version:  "abc123def456abc123def456abc123def456abcd",
 			expected: false,
 		},
 		{
 			name:     "branch reference",
 			version:  "main",
-			expected: false,
+			expected: true,
 		},
 		{
 			name:     "pre-release version",
 			version:  "v6.2.3-beta.1",
-			expected: false,
+			expected: true,
 		},
 		{
 			name:     "version without v prefix",
 			version:  "6.2.3",
-			expected: false,
+			expected: true,
 		},
 	}
 
