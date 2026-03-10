@@ -1,3 +1,13 @@
 {
-  "words": ["covermode", "coverprofile", "golangci", "gomod", "goreleaser", "raviqqe", "toplevel"]
+  "words": [
+    "covermode",
+    "coverprofile",
+    "golangci",
+    "gomod",
+    "gopkg",
+    "goreleaser",
+    "raviqqe",
+    "stretchr",
+    "toplevel"
+  ]
 }
