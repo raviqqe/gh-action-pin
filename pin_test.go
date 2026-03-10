@@ -88,8 +88,8 @@ func TestPinWorkflowFile(t *testing.T) {
 		versions: map[string]resolvedVersion{
 			"actions/checkout@v6":                    {hash: "aabbccdd00112233445566778899aabbccddeeff", fullVersion: "v6.2.3"},
 			"golangci/golangci-lint-action@v9":       {hash: "1122334455667788990011223344556677889900", fullVersion: "v9.1.0"},
-			"owner/repo@v1":                          {hash: "ffeeddccbbaa99887766554433221100ffeeddcc", fullVersion: "v1.5.2"},
-			"owner/repo/.github/workflows/ci.yml@v2": {hash: "0011223344556677889900112233445566778899", fullVersion: "v2.0.1"},
+			"owner/repo@v1": {hash: "ffeeddccbbaa99887766554433221100ffeeddcc", fullVersion: "v1.5.2"},
+			"owner/repo@v2": {hash: "0011223344556677889900112233445566778899", fullVersion: "v2.0.1"},
 		},
 	}
 
