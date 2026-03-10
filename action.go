@@ -56,12 +56,7 @@ func ParseUses(line string) (ActionReference, bool) {
 }
 
 func (ref ActionReference) NeedsPin() bool {
-	if len(ref.Version) == 40 && IsHexString(ref.Version) {
-		return false
-	}
-
-	_, ok := ParseVersionSpec(ref.Version)
-	return ok
+	return len(ref.Version) != 40 || !IsHexString(ref.Version)
 }
 
 func (ref ActionReference) ActionPath() string {

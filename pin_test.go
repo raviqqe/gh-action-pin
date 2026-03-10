@@ -78,6 +78,7 @@ func TestPinWorkflowFile(t *testing.T) {
 			"golangci/golangci-lint-action@v9": {hash: "1122334455667788990011223344556677889900", fullVersion: "v9.1.0"},
 			"owner/repo@v1":                    {hash: "ffeeddccbbaa99887766554433221100ffeeddcc", fullVersion: "v1.5.2"},
 			"owner/repo@v2":                    {hash: "0011223344556677889900112233445566778899", fullVersion: "v2.0.1"},
+			"owner/repo@main":                  {hash: "aabb001122334455667788990011223344556677", fullVersion: "v2.0.1"},
 		},
 	}
 
@@ -134,7 +135,7 @@ jobs:
 		assert.Equal(t, content, string(got))
 	})
 
-	t.Run("skip branch references", func(t *testing.T) {
+	t.Run("pin branch references", func(t *testing.T) {
 		content := `name: test
 on: push
 jobs:
@@ -144,6 +145,15 @@ jobs:
       - uses: owner/repo@main
 `
 
+		expected := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: owner/repo@aabb001122334455667788990011223344556677 # v2.0.1
+`
+
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
 		require.NoError(t, pin.PinWorkflowFile(path, resolver))
@@ -151,7 +161,7 @@ jobs:
 		got, err := os.ReadFile(path)
 
 		require.NoError(t, err)
-		assert.Equal(t, content, string(got))
+		assert.Equal(t, expected, string(got))
 	})
 
 	t.Run("replace existing comments", func(t *testing.T) {
@@ -235,6 +245,21 @@ jobs:
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, string(got))
+	})
+
+	t.Run("fail when resolver returns an error", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: unknown/action@v1
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		assert.Error(t, pin.PinWorkflowFile(path, resolver))
 	})
 
 	t.Run("preserve file when nothing to pin", func(t *testing.T) {
