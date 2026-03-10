@@ -70,7 +70,7 @@ func (ref actionReference) actionPath() string {
 
 func isHexString(str string) bool {
 	for _, char := range str {
-		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
+		if (char < '0' || char > '9') && (char < 'a' || char > 'f') && (char < 'A' || char > 'F') {
 			return false
 		}
 	}
