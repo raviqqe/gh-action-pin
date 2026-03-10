@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/mod/semver"
 )
 
 func FindWorkflowFiles(root string) ([]string, error) {
@@ -36,7 +38,7 @@ func FindWorkflowFiles(root string) ([]string, error) {
 	return files, nil
 }
 
-func PinWorkflowFile(path string, resolver VersionResolver) error {
+func PinWorkflowFile(path string, resolver VersionResolver, force bool) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -47,17 +49,40 @@ func PinWorkflowFile(path string, resolver VersionResolver) error {
 
 	for index, line := range lines {
 		action, ok := ParseUses(line)
-		if !ok || !action.NeedsPin() {
+		if !ok {
 			continue
 		}
 
-		hash, fullVersion, err := resolver.Resolve(action.Owner, action.Repo, action.Version)
-		if err != nil {
-			return fmt.Errorf("resolving %s@%s: %w", action.ActionPath(), action.Version, err)
+		version := action.Version
+
+		if !action.NeedsPin() {
+			if !force {
+				continue
+			}
+
+			version = action.CommentVersion()
+			if version == "" {
+				continue
+			}
 		}
 
-		lines[index] = action.Prefix + action.ActionPath() + "@" + hash + " # " + fullVersion
-		changed = true
+		if force {
+			spec, ok := ParseVersionSpec(version)
+			if ok && spec.IsFullSemver() {
+				version = semver.Major(version)
+			}
+		}
+
+		hash, fullVersion, err := resolver.Resolve(action.Owner, action.Repo, version)
+		if err != nil {
+			return fmt.Errorf("resolving %s@%s: %w", action.ActionPath(), version, err)
+		}
+
+		newLine := action.Prefix + action.ActionPath() + "@" + hash + " # " + fullVersion
+		if lines[index] != newLine {
+			lines[index] = newLine
+			changed = true
+		}
 	}
 
 	if !changed {

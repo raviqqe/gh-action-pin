@@ -45,6 +45,7 @@ func TestParseUses(t *testing.T) {
 				Owner:   "actions",
 				Repo:    "checkout",
 				Version: "v6",
+				Comment: " # some comment",
 			},
 			ok: true,
 		},
@@ -263,6 +264,58 @@ func TestIsHexString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, pin.IsHexString(tt.input))
+		})
+	}
+}
+
+func TestCommentVersion(t *testing.T) {
+	tests := []struct {
+		name     string
+		comment  string
+		expected string
+	}{
+		{
+			name:     "full semver comment",
+			comment:  " # v6.2.3",
+			expected: "v6.2.3",
+		},
+		{
+			name:     "major version comment",
+			comment:  " # v6",
+			expected: "v6",
+		},
+		{
+			name:     "major and minor version comment",
+			comment:  " # v6.2",
+			expected: "v6.2",
+		},
+		{
+			name:     "non-version comment",
+			comment:  " # some comment",
+			expected: "",
+		},
+		{
+			name:     "empty comment",
+			comment:  "",
+			expected: "",
+		},
+		{
+			name:     "hash only",
+			comment:  " #",
+			expected: "",
+		},
+		{
+			name:     "version with trailing text",
+			comment:  " # v6.2.3 pinned",
+			expected: "v6.2.3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ref := pin.ActionReference{Comment: tt.comment}
+
+			assert.Equal(t, tt.expected, ref.CommentVersion())
 		})
 	}
 }

@@ -13,6 +13,7 @@ const version = "0.2.0"
 func main() {
 	showVersion := flag.Bool("version", false, "show version")
 	previous := flag.Bool("previous", false, "pin to the second latest version")
+	force := flag.Bool("force", false, "check and update all action versions even when already pinned")
 	flag.Parse()
 
 	if *showVersion {
@@ -20,13 +21,13 @@ func main() {
 		return
 	}
 
-	if err := run(*previous); err != nil {
+	if err := run(*previous, *force); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
 
-func run(previous bool) error {
+func run(previous, force bool) error {
 	root, err := findGitRoot()
 	if err != nil {
 		return err
@@ -44,7 +45,7 @@ func run(previous bool) error {
 	resolver := newGithubResolver(previous)
 
 	for _, file := range files {
-		if err := PinWorkflowFile(file, resolver); err != nil {
+		if err := PinWorkflowFile(file, resolver, force); err != nil {
 			return err
 		}
 	}

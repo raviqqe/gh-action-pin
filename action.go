@@ -13,6 +13,7 @@ type ActionReference struct {
 	Repo    string
 	Path    string
 	Version string
+	Comment string
 }
 
 func ParseUses(line string) (ActionReference, bool) {
@@ -46,6 +47,7 @@ func ParseUses(line string) (ActionReference, bool) {
 		Owner:   segments[0],
 		Repo:    segments[1],
 		Version: version,
+		Comment: matches[3],
 	}
 
 	if len(segments) == 3 {
@@ -70,4 +72,23 @@ func IsHexString(str string) bool {
 		}
 	}
 	return true
+}
+
+func (ref ActionReference) CommentVersion() string {
+	trimmed := strings.TrimSpace(ref.Comment)
+	if !strings.HasPrefix(trimmed, "#") {
+		return ""
+	}
+
+	fields := strings.Fields(strings.TrimPrefix(trimmed, "#"))
+	if len(fields) == 0 {
+		return ""
+	}
+
+	version := fields[0]
+	if _, ok := ParseVersionSpec(version); ok {
+		return version
+	}
+
+	return ""
 }
