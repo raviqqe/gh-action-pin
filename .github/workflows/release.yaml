@@ -12,7 +12,7 @@ jobs:
         with:
           fetch-depth: 0
       - id: version
-        run: echo version=v$(go run . version) > ${{ github.output }}
+        run: echo version=v$(go run . -version) > ${{ github.output }}
       - uses: raviqqe/goreleaser-action@8af8ed473f5cf03aa1f670ac5f728c4b29809fd6 # v1.0.1
         with:
           version: ${{ steps.version.outputs.version }}
