@@ -1,0 +1,36 @@
+name: test
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  go_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: go build
+      - uses: golangci/golangci-lint-action@v9
+      - run: go test -race -covermode atomic -coverprofile coverage.txt
+      - uses: codecov/codecov-action@v5
+  spell_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: streetsidesoftware/cspell-action@v8
+        with:
+          files: "**/*.{md,go}"
+  readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: raviqqe/markdown-link-check@main
+  test:
+    needs:
+      - go_test
+      - spell_check
+      - readme
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: for result in ${{ join(needs.*.result, ' ') }}; do [ $result = success ]; done
