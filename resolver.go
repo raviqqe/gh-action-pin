@@ -36,20 +36,9 @@ func (resolver *githubResolver) Resolve(owner, repo, version string) (string, st
 		return cached.hash, cached.fullVersion, nil
 	}
 
-	spec, ok := ParseVersionSpec(version)
-	if !ok {
-		return "", "", fmt.Errorf("invalid version: %s", version)
-	}
-
-	fullVersion := version
-
-	if !spec.IsFullSemver() {
-		resolved, err := resolver.findFullVersion(owner, repo, version, spec)
-		if err != nil {
-			return "", "", err
-		}
-
-		fullVersion = resolved
+	fullVersion, err := resolver.resolveFullVersion(owner, repo, version)
+	if err != nil {
+		return "", "", err
 	}
 
 	hash, err := resolver.resolveCommitHash(owner, repo, fullVersion)
@@ -60,6 +49,19 @@ func (resolver *githubResolver) Resolve(owner, repo, version string) (string, st
 	resolver.cache[key] = resolvedVersion{hash: hash, fullVersion: fullVersion}
 
 	return hash, fullVersion, nil
+}
+
+func (resolver *githubResolver) resolveFullVersion(owner, repo, version string) (string, error) {
+	spec, ok := ParseVersionSpec(version)
+	if !ok {
+		return resolver.findLatestRelease(owner, repo)
+	}
+
+	if spec.IsFullSemver() {
+		return version, nil
+	}
+
+	return resolver.findFullVersion(owner, repo, version, spec)
 }
 
 type gitRef struct {
@@ -106,6 +108,22 @@ func (resolver *githubResolver) findFullVersion(owner, repo, version string, spe
 	})
 
 	return versions[len(versions)-1], nil
+}
+
+func (resolver *githubResolver) findLatestRelease(owner, repo string) (string, error) {
+	apiPath := fmt.Sprintf("repos/%s/%s/releases/latest", owner, repo)
+
+	out, err := exec.Command("gh", "api", apiPath, "--jq", ".tag_name").Output()
+	if err != nil {
+		return "", fmt.Errorf("finding latest release for %s/%s: %w", owner, repo, err)
+	}
+
+	tag := strings.TrimSpace(string(out))
+	if tag == "" {
+		return "", fmt.Errorf("no release found for %s/%s", owner, repo)
+	}
+
+	return tag, nil
 }
 
 func (resolver *githubResolver) resolveCommitHash(owner, repo, version string) (string, error) {
