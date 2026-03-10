@@ -247,6 +247,21 @@ jobs:
 		assert.Equal(t, expected, string(got))
 	})
 
+	t.Run("fail when resolver returns an error", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: unknown/action@v1
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		assert.Error(t, pin.PinWorkflowFile(path, resolver))
+	})
+
 	t.Run("preserve file when nothing to pin", func(t *testing.T) {
 		content := `name: test
 on: push

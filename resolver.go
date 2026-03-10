@@ -123,6 +123,10 @@ func (resolver *githubResolver) findLatestRelease(owner, repo string) (string, e
 		return "", fmt.Errorf("no release found for %s/%s", owner, repo)
 	}
 
+	if _, ok := ParseSemver(tag); !ok {
+		return "", fmt.Errorf("latest release tag %q for %s/%s is not a valid semantic version", tag, owner, repo)
+	}
+
 	return tag, nil
 }
 
