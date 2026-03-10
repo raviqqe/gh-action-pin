@@ -53,15 +53,15 @@ func (resolver *githubResolver) Resolve(owner, repo, version string) (string, st
 
 func (resolver *githubResolver) resolveFullVersion(owner, repo, version string) (string, error) {
 	spec, ok := ParseVersionSpec(version)
-	if !ok {
-		return resolver.findLatestRelease(owner, repo)
-	}
-
-	if spec.IsFullSemver() {
+	if ok && spec.IsFullSemver() {
 		return version, nil
 	}
 
-	return resolver.findFullVersion(owner, repo, version, spec)
+	if ok {
+		return resolver.findHighestVersion(owner, repo, version+".", &spec)
+	}
+
+	return resolver.findHighestVersion(owner, repo, "v", nil)
 }
 
 type gitRef struct {
@@ -71,12 +71,12 @@ type gitRef struct {
 	} `json:"object"`
 }
 
-func (resolver *githubResolver) findFullVersion(owner, repo, version string, spec VersionSpec) (string, error) {
-	apiPath := fmt.Sprintf("repos/%s/%s/git/matching-refs/tags/%s.", owner, repo, version)
+func (resolver *githubResolver) findHighestVersion(owner, repo, tagPrefix string, spec *VersionSpec) (string, error) {
+	apiPath := fmt.Sprintf("repos/%s/%s/git/matching-refs/tags/%s", owner, repo, tagPrefix)
 
 	out, err := exec.Command("gh", "api", apiPath, "--paginate").Output()
 	if err != nil {
-		return "", fmt.Errorf("listing tags for %s/%s@%s: %w", owner, repo, version, err)
+		return "", fmt.Errorf("listing tags for %s/%s: %w", owner, repo, err)
 	}
 
 	var refs []gitRef
@@ -94,13 +94,15 @@ func (resolver *githubResolver) findFullVersion(owner, repo, version string, spe
 			continue
 		}
 
-		if spec.Matches(parsed) {
-			versions = append(versions, parsed)
+		if spec != nil && !spec.Matches(parsed) {
+			continue
 		}
+
+		versions = append(versions, parsed)
 	}
 
 	if len(versions) == 0 {
-		return "", fmt.Errorf("no matching version found for %s/%s@%s", owner, repo, version)
+		return "", fmt.Errorf("no semantic version tag found for %s/%s", owner, repo)
 	}
 
 	sort.Slice(versions, func(index, other int) bool {
@@ -108,26 +110,6 @@ func (resolver *githubResolver) findFullVersion(owner, repo, version string, spe
 	})
 
 	return versions[len(versions)-1], nil
-}
-
-func (resolver *githubResolver) findLatestRelease(owner, repo string) (string, error) {
-	apiPath := fmt.Sprintf("repos/%s/%s/releases/latest", owner, repo)
-
-	out, err := exec.Command("gh", "api", apiPath, "--jq", ".tag_name").Output()
-	if err != nil {
-		return "", fmt.Errorf("finding latest release for %s/%s: %w", owner, repo, err)
-	}
-
-	tag := strings.TrimSpace(string(out))
-	if tag == "" {
-		return "", fmt.Errorf("no release found for %s/%s", owner, repo)
-	}
-
-	if _, ok := ParseSemver(tag); !ok {
-		return "", fmt.Errorf("latest release tag %q for %s/%s is not a valid semantic version", tag, owner, repo)
-	}
-
-	return tag, nil
 }
 
 func (resolver *githubResolver) resolveCommitHash(owner, repo, version string) (string, error) {
