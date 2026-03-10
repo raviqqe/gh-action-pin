@@ -12,25 +12,25 @@ func TestParseSemver(t *testing.T) {
 	tests := []struct {
 		name     string
 		tag      string
-		expected pin.Semver
+		expected string
 		ok       bool
 	}{
 		{
 			name:     "full semver",
 			tag:      "v6.2.3",
-			expected: pin.Semver{Major: 6, Minor: 2, Patch: 3, Raw: "v6.2.3"},
+			expected: "v6.2.3",
 			ok:       true,
 		},
 		{
 			name:     "zero version",
 			tag:      "v0.0.0",
-			expected: pin.Semver{Raw: "v0.0.0"},
+			expected: "v0.0.0",
 			ok:       true,
 		},
 		{
 			name:     "large numbers",
 			tag:      "v100.200.300",
-			expected: pin.Semver{Major: 100, Minor: 200, Patch: 300, Raw: "v100.200.300"},
+			expected: "v100.200.300",
 			ok:       true,
 		},
 		{
@@ -51,6 +51,11 @@ func TestParseSemver(t *testing.T) {
 		{
 			name: "pre-release",
 			tag:  "v6.2.3-beta.1",
+			ok:   false,
+		},
+		{
+			name: "build metadata",
+			tag:  "v6.2.3+build",
 			ok:   false,
 		},
 		{
@@ -78,76 +83,28 @@ func TestParseSemver(t *testing.T) {
 	}
 }
 
-func TestSemverLess(t *testing.T) {
-	tests := []struct {
-		name     string
-		left     pin.Semver
-		right    pin.Semver
-		expected bool
-	}{
-		{
-			name:     "less by major",
-			left:     pin.Semver{Major: 1, Minor: 9, Patch: 9},
-			right:    pin.Semver{Major: 2, Minor: 0, Patch: 0},
-			expected: true,
-		},
-		{
-			name:     "less by minor",
-			left:     pin.Semver{Major: 1, Minor: 2, Patch: 9},
-			right:    pin.Semver{Major: 1, Minor: 3, Patch: 0},
-			expected: true,
-		},
-		{
-			name:     "less by patch",
-			left:     pin.Semver{Major: 1, Minor: 2, Patch: 3},
-			right:    pin.Semver{Major: 1, Minor: 2, Patch: 4},
-			expected: true,
-		},
-		{
-			name:     "equal",
-			left:     pin.Semver{Major: 1, Minor: 2, Patch: 3},
-			right:    pin.Semver{Major: 1, Minor: 2, Patch: 3},
-			expected: false,
-		},
-		{
-			name:     "greater",
-			left:     pin.Semver{Major: 2, Minor: 0, Patch: 0},
-			right:    pin.Semver{Major: 1, Minor: 9, Patch: 9},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.left.Less(tt.right))
-		})
-	}
-}
-
 func TestParseVersionSpec(t *testing.T) {
 	tests := []struct {
-		name     string
-		version  string
-		expected pin.VersionSpec
-		ok       bool
+		name         string
+		version      string
+		ok           bool
+		isFullSemver bool
 	}{
 		{
-			name:     "major only",
-			version:  "v6",
-			expected: pin.VersionSpec{Major: 6},
-			ok:       true,
+			name:    "major only",
+			version: "v6",
+			ok:      true,
 		},
 		{
-			name:     "major and minor",
-			version:  "v6.2",
-			expected: pin.VersionSpec{Major: 6, Minor: 2, HasMinor: true},
-			ok:       true,
+			name:    "major and minor",
+			version: "v6.2",
+			ok:      true,
 		},
 		{
-			name:     "full semver",
-			version:  "v6.2.3",
-			expected: pin.VersionSpec{Major: 6, Minor: 2, Patch: 3, HasMinor: true, HasPatch: true},
-			ok:       true,
+			name:         "full semver",
+			version:      "v6.2.3",
+			ok:           true,
+			isFullSemver: true,
 		},
 		{
 			name:    "without v prefix",
@@ -155,13 +112,13 @@ func TestParseVersionSpec(t *testing.T) {
 			ok:      false,
 		},
 		{
-			name:    "non-numeric component",
-			version: "v6.abc",
+			name:    "pre-release",
+			version: "v6.2.3-beta.1",
 			ok:      false,
 		},
 		{
-			name:    "too many components",
-			version: "v1.2.3.4",
+			name:    "non-numeric component",
+			version: "v6.abc",
 			ok:      false,
 		},
 		{
@@ -178,12 +135,12 @@ func TestParseVersionSpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, ok := pin.ParseVersionSpec(tt.version)
+			spec, ok := pin.ParseVersionSpec(tt.version)
 
 			assert.Equal(t, tt.ok, ok)
 
 			if ok {
-				assert.Equal(t, tt.expected, got)
+				assert.Equal(t, tt.isFullSemver, spec.IsFullSemver())
 			}
 		})
 	}
@@ -192,81 +149,53 @@ func TestParseVersionSpec(t *testing.T) {
 func TestVersionSpecMatches(t *testing.T) {
 	tests := []struct {
 		name     string
-		spec     pin.VersionSpec
-		version  pin.Semver
+		spec     string
+		version  string
 		expected bool
 	}{
 		{
 			name:     "major matches",
-			spec:     pin.VersionSpec{Major: 6},
-			version:  pin.Semver{Major: 6, Minor: 2, Patch: 3},
+			spec:     "v6",
+			version:  "v6.2.3",
 			expected: true,
 		},
 		{
 			name:     "major does not match",
-			spec:     pin.VersionSpec{Major: 6},
-			version:  pin.Semver{Major: 7, Minor: 0, Patch: 0},
+			spec:     "v6",
+			version:  "v7.0.0",
 			expected: false,
 		},
 		{
 			name:     "major and minor match",
-			spec:     pin.VersionSpec{Major: 6, Minor: 2, HasMinor: true},
-			version:  pin.Semver{Major: 6, Minor: 2, Patch: 5},
+			spec:     "v6.2",
+			version:  "v6.2.5",
 			expected: true,
 		},
 		{
 			name:     "minor does not match",
-			spec:     pin.VersionSpec{Major: 6, Minor: 2, HasMinor: true},
-			version:  pin.Semver{Major: 6, Minor: 3, Patch: 0},
+			spec:     "v6.2",
+			version:  "v6.3.0",
 			expected: false,
 		},
 		{
 			name:     "full semver matches",
-			spec:     pin.VersionSpec{Major: 6, Minor: 2, Patch: 3, HasMinor: true, HasPatch: true},
-			version:  pin.Semver{Major: 6, Minor: 2, Patch: 3},
+			spec:     "v6.2.3",
+			version:  "v6.2.3",
 			expected: true,
 		},
 		{
 			name:     "patch does not match",
-			spec:     pin.VersionSpec{Major: 6, Minor: 2, Patch: 3, HasMinor: true, HasPatch: true},
-			version:  pin.Semver{Major: 6, Minor: 2, Patch: 4},
+			spec:     "v6.2.3",
+			version:  "v6.2.4",
 			expected: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.spec.Matches(tt.version))
-		})
-	}
-}
-
-func TestVersionSpecIsFullSemver(t *testing.T) {
-	tests := []struct {
-		name     string
-		spec     pin.VersionSpec
-		expected bool
-	}{
-		{
-			name:     "major only",
-			spec:     pin.VersionSpec{Major: 6},
-			expected: false,
-		},
-		{
-			name:     "major and minor",
-			spec:     pin.VersionSpec{Major: 6, Minor: 2, HasMinor: true},
-			expected: false,
-		},
-		{
-			name:     "full semver",
-			spec:     pin.VersionSpec{Major: 6, Minor: 2, Patch: 3, HasMinor: true, HasPatch: true},
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.spec.IsFullSemver())
+			spec, ok := pin.ParseVersionSpec(tt.spec)
+			assert.True(t, ok)
+			assert.Equal(t, tt.expected, spec.Matches(tt.version))
 		})
 	}
 }

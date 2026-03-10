@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+
+	"golang.org/x/mod/semver"
 )
 
 type VersionResolver interface {
@@ -80,7 +82,7 @@ func (resolver *githubResolver) findFullVersion(owner, repo, version string, spe
 		return "", fmt.Errorf("parsing tags response: %w", err)
 	}
 
-	var versions []Semver
+	var versions []string
 
 	for _, ref := range refs {
 		tag := strings.TrimPrefix(ref.Ref, "refs/tags/")
@@ -100,10 +102,10 @@ func (resolver *githubResolver) findFullVersion(owner, repo, version string, spe
 	}
 
 	sort.Slice(versions, func(index, other int) bool {
-		return versions[index].Less(versions[other])
+		return semver.Compare(versions[index], versions[other]) < 0
 	})
 
-	return versions[len(versions)-1].Raw, nil
+	return versions[len(versions)-1], nil
 }
 
 func (resolver *githubResolver) resolveCommitHash(owner, repo, version string) (string, error) {
