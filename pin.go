@@ -38,7 +38,7 @@ func FindWorkflowFiles(root string) ([]string, error) {
 	return files, nil
 }
 
-func PinWorkflowFile(path string, resolver VersionResolver, force bool) error {
+func PinWorkflowFile(path string, resolver VersionResolver) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -56,21 +56,15 @@ func PinWorkflowFile(path string, resolver VersionResolver, force bool) error {
 		version := action.Version
 
 		if !action.NeedsPin() {
-			if !force {
-				continue
-			}
-
 			version = action.CommentVersion()
 			if version == "" {
 				continue
 			}
 		}
 
-		if force {
-			spec, ok := ParseVersionSpec(version)
-			if ok && spec.IsFullSemver() {
-				version = semver.Major(version)
-			}
+		spec, ok := ParseVersionSpec(version)
+		if ok && spec.IsFullSemver() {
+			version = semver.Major(version)
 		}
 
 		hash, fullVersion, err := resolver.Resolve(action.Owner, action.Repo, version)

@@ -107,32 +107,12 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, false))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, string(got))
-	})
-
-	t.Run("skip already pinned actions", func(t *testing.T) {
-		content := `name: test
-on: push
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff # v6.2.3
-`
-
-		path := filepath.Join(t.TempDir(), "test.yaml")
-		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, false))
-
-		got, err := os.ReadFile(path)
-
-		require.NoError(t, err)
-		assert.Equal(t, content, string(got))
 	})
 
 	t.Run("pin branch references", func(t *testing.T) {
@@ -156,7 +136,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, false))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
 
@@ -185,7 +165,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, false))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
 
@@ -210,7 +190,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, false))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
 
@@ -239,7 +219,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, false))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
 
@@ -259,7 +239,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		assert.Error(t, pin.PinWorkflowFile(path, resolver, false))
+		assert.Error(t, pin.PinWorkflowFile(path, resolver))
 	})
 
 	t.Run("preserve file when nothing to pin", func(t *testing.T) {
@@ -274,28 +254,24 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, false))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
 
 		require.NoError(t, err)
 		assert.Equal(t, content, string(got))
 	})
-}
-
-func TestPinWorkflowFileForce(t *testing.T) {
-	resolver := &mockResolver{
-		versions: map[string]struct {
-			hash        string
-			fullVersion string
-		}{
-			"actions/checkout@v6":              {hash: "11111111111111111111aaaaaaaaaaaaaaaaaaaa", fullVersion: "v6.3.0"},
-			"golangci/golangci-lint-action@v9": {hash: "22222222222222222222bbbbbbbbbbbbbbbbbbbb", fullVersion: "v9.2.0"},
-			"owner/repo@v1":                    {hash: "33333333333333333333cccccccccccccccccccc", fullVersion: "v1.6.0"},
-		},
-	}
 
 	t.Run("update hash-pinned actions", func(t *testing.T) {
+		updateResolver := &mockResolver{
+			versions: map[string]struct {
+				hash        string
+				fullVersion string
+			}{
+				"actions/checkout@v6": {hash: "11111111111111111111aaaaaaaaaaaaaaaaaaaa", fullVersion: "v6.3.0"},
+			},
+		}
+
 		content := `name: test
 on: push
 jobs:
@@ -316,7 +292,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, true))
+		require.NoError(t, pin.PinWorkflowFile(path, updateResolver))
 
 		got, err := os.ReadFile(path)
 
@@ -325,6 +301,15 @@ jobs:
 	})
 
 	t.Run("update full semver version to latest", func(t *testing.T) {
+		updateResolver := &mockResolver{
+			versions: map[string]struct {
+				hash        string
+				fullVersion string
+			}{
+				"actions/checkout@v6": {hash: "11111111111111111111aaaaaaaaaaaaaaaaaaaa", fullVersion: "v6.3.0"},
+			},
+		}
+
 		content := `name: test
 on: push
 jobs:
@@ -345,7 +330,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, true))
+		require.NoError(t, pin.PinWorkflowFile(path, updateResolver))
 
 		got, err := os.ReadFile(path)
 
@@ -365,7 +350,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, true))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
 
@@ -385,7 +370,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, true))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
 
@@ -400,12 +385,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11111111111111111111aaaaaaaaaaaaaaaaaaaa # v6.3.0
+      - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff # v6.2.3
 `
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, true))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
 
@@ -414,6 +399,15 @@ jobs:
 	})
 
 	t.Run("update hash-pinned actions with major version comment", func(t *testing.T) {
+		updateResolver := &mockResolver{
+			versions: map[string]struct {
+				hash        string
+				fullVersion string
+			}{
+				"owner/repo@v1": {hash: "33333333333333333333cccccccccccccccccccc", fullVersion: "v1.6.0"},
+			},
+		}
+
 		content := `name: test
 on: push
 jobs:
@@ -434,7 +428,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver, true))
+		require.NoError(t, pin.PinWorkflowFile(path, updateResolver))
 
 		got, err := os.ReadFile(path)
 
