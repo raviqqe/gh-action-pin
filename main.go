@@ -12,6 +12,7 @@ const version = "0.1.1"
 
 func main() {
 	showVersion := flag.Bool("version", false, "show version")
+	previous := flag.Bool("previous", false, "pin to the second latest version")
 	flag.Parse()
 
 	if *showVersion {
@@ -19,13 +20,13 @@ func main() {
 		return
 	}
 
-	if err := run(); err != nil {
+	if err := run(*previous); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+func run(previous bool) error {
 	root, err := findGitRoot()
 	if err != nil {
 		return err
@@ -40,7 +41,7 @@ func run() error {
 		return fmt.Errorf("no workflow files found")
 	}
 
-	resolver := newGithubResolver()
+	resolver := newGithubResolver(previous)
 
 	for _, file := range files {
 		if err := PinWorkflowFile(file, resolver); err != nil {
