@@ -3,41 +3,35 @@ package main_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	pin "github.com/raviqqe/gh-action-pin"
 )
 
 func TestParseSemver(t *testing.T) {
 	tests := []struct {
-		name          string
-		tag           string
-		expectedMajor int
-		expectedMinor int
-		expectedPatch int
-		ok            bool
+		name     string
+		tag      string
+		expected pin.Semver
+		ok       bool
 	}{
 		{
-			name:          "full semver",
-			tag:           "v6.2.3",
-			expectedMajor: 6,
-			expectedMinor: 2,
-			expectedPatch: 3,
-			ok:            true,
+			name:     "full semver",
+			tag:      "v6.2.3",
+			expected: pin.Semver{Major: 6, Minor: 2, Patch: 3, Raw: "v6.2.3"},
+			ok:       true,
 		},
 		{
-			name:          "zero version",
-			tag:           "v0.0.0",
-			expectedMajor: 0,
-			expectedMinor: 0,
-			expectedPatch: 0,
-			ok:            true,
+			name:     "zero version",
+			tag:      "v0.0.0",
+			expected: pin.Semver{Raw: "v0.0.0"},
+			ok:       true,
 		},
 		{
-			name:          "large numbers",
-			tag:           "v100.200.300",
-			expectedMajor: 100,
-			expectedMinor: 200,
-			expectedPatch: 300,
-			ok:            true,
+			name:     "large numbers",
+			tag:      "v100.200.300",
+			expected: pin.Semver{Major: 100, Minor: 200, Patch: 300, Raw: "v100.200.300"},
+			ok:       true,
 		},
 		{
 			name: "major only",
@@ -74,22 +68,11 @@ func TestParseSemver(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, ok := pin.ParseSemver(tt.tag)
-			if ok != tt.ok {
-				t.Fatalf("ParseSemver(%q): ok = %v, want %v", tt.tag, ok, tt.ok)
-			}
 
-			if !ok {
-				return
-			}
+			assert.Equal(t, tt.ok, ok)
 
-			if got.Major != tt.expectedMajor || got.Minor != tt.expectedMinor || got.Patch != tt.expectedPatch {
-				t.Errorf("ParseSemver(%q) = %d.%d.%d, want %d.%d.%d",
-					tt.tag, got.Major, got.Minor, got.Patch,
-					tt.expectedMajor, tt.expectedMinor, tt.expectedPatch)
-			}
-
-			if got.Raw != tt.tag {
-				t.Errorf("ParseSemver(%q).Raw = %q, want %q", tt.tag, got.Raw, tt.tag)
+			if ok {
+				assert.Equal(t, tt.expected, got)
 			}
 		})
 	}
@@ -136,40 +119,35 @@ func TestSemverLess(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.left.Less(tt.right); got != tt.expected {
-				t.Errorf("(%d.%d.%d).Less(%d.%d.%d) = %v, want %v",
-					tt.left.Major, tt.left.Minor, tt.left.Patch,
-					tt.right.Major, tt.right.Minor, tt.right.Patch,
-					got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, tt.left.Less(tt.right))
 		})
 	}
 }
 
 func TestParseVersionSpec(t *testing.T) {
 	tests := []struct {
-		name         string
-		version      string
-		expectedSpec pin.VersionSpec
-		ok           bool
+		name     string
+		version  string
+		expected pin.VersionSpec
+		ok       bool
 	}{
 		{
-			name:         "major only",
-			version:      "v6",
-			expectedSpec: pin.VersionSpec{Major: 6},
-			ok:           true,
+			name:     "major only",
+			version:  "v6",
+			expected: pin.VersionSpec{Major: 6},
+			ok:       true,
 		},
 		{
-			name:         "major and minor",
-			version:      "v6.2",
-			expectedSpec: pin.VersionSpec{Major: 6, Minor: 2, HasMinor: true},
-			ok:           true,
+			name:     "major and minor",
+			version:  "v6.2",
+			expected: pin.VersionSpec{Major: 6, Minor: 2, HasMinor: true},
+			ok:       true,
 		},
 		{
-			name:         "full semver",
-			version:      "v6.2.3",
-			expectedSpec: pin.VersionSpec{Major: 6, Minor: 2, Patch: 3, HasMinor: true, HasPatch: true},
-			ok:           true,
+			name:     "full semver",
+			version:  "v6.2.3",
+			expected: pin.VersionSpec{Major: 6, Minor: 2, Patch: 3, HasMinor: true, HasPatch: true},
+			ok:       true,
 		},
 		{
 			name:    "without v prefix",
@@ -201,16 +179,11 @@ func TestParseVersionSpec(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, ok := pin.ParseVersionSpec(tt.version)
-			if ok != tt.ok {
-				t.Fatalf("ParseVersionSpec(%q): ok = %v, want %v", tt.version, ok, tt.ok)
-			}
 
-			if !ok {
-				return
-			}
+			assert.Equal(t, tt.ok, ok)
 
-			if got != tt.expectedSpec {
-				t.Errorf("ParseVersionSpec(%q) = %+v, want %+v", tt.version, got, tt.expectedSpec)
+			if ok {
+				assert.Equal(t, tt.expected, got)
 			}
 		})
 	}
@@ -263,9 +236,7 @@ func TestVersionSpecMatches(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.spec.Matches(tt.version); got != tt.expected {
-				t.Errorf("spec.Matches(version) = %v, want %v", got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, tt.spec.Matches(tt.version))
 		})
 	}
 }
@@ -295,9 +266,7 @@ func TestVersionSpecIsFullSemver(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.spec.IsFullSemver(); got != tt.expected {
-				t.Errorf("IsFullSemver() = %v, want %v", got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, tt.spec.IsFullSemver())
 		})
 	}
 }

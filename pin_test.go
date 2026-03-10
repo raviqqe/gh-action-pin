@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	pin "github.com/raviqqe/gh-action-pin"
 )
 
@@ -32,59 +35,36 @@ func TestFindWorkflowFiles(t *testing.T) {
 		root := t.TempDir()
 		workflowDir := filepath.Join(root, ".github", "workflows")
 
-		if err := os.MkdirAll(workflowDir, 0755); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(workflowDir, 0755))
 
 		for _, name := range []string{"test.yaml", "build.yml", "notes.txt"} {
-			if err := os.WriteFile(filepath.Join(workflowDir, name), []byte(""), 0644); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, os.WriteFile(filepath.Join(workflowDir, name), []byte(""), 0644))
 		}
 
 		files, err := pin.FindWorkflowFiles(root)
-		if err != nil {
-			t.Fatal(err)
-		}
 
-		if len(files) != 2 {
-			t.Fatalf("found %d files, want 2", len(files))
-		}
+		require.NoError(t, err)
+		assert.Len(t, files, 2)
 	})
 
 	t.Run("return nil for missing workflow directory", func(t *testing.T) {
-		root := t.TempDir()
+		files, err := pin.FindWorkflowFiles(t.TempDir())
 
-		files, err := pin.FindWorkflowFiles(root)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if files != nil {
-			t.Fatalf("expected nil, got %v", files)
-		}
+		require.NoError(t, err)
+		assert.Nil(t, files)
 	})
 
 	t.Run("skip subdirectories", func(t *testing.T) {
 		root := t.TempDir()
 		workflowDir := filepath.Join(root, ".github", "workflows")
 
-		if err := os.MkdirAll(filepath.Join(workflowDir, "subdir"), 0755); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := os.WriteFile(filepath.Join(workflowDir, "test.yaml"), []byte(""), 0644); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Join(workflowDir, "subdir"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(workflowDir, "test.yaml"), []byte(""), 0644))
 
 		files, err := pin.FindWorkflowFiles(root)
-		if err != nil {
-			t.Fatal(err)
-		}
 
-		if len(files) != 1 {
-			t.Fatalf("found %d files, want 1", len(files))
-		}
+		require.NoError(t, err)
+		assert.Len(t, files, 1)
 	})
 }
 
@@ -125,22 +105,13 @@ jobs:
 `
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := pin.PinWorkflowFile(path, resolver); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
 
-		if string(got) != expected {
-			t.Errorf("got:\n%s\nwant:\n%s", string(got), expected)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, expected, string(got))
 	})
 
 	t.Run("skip already pinned actions", func(t *testing.T) {
@@ -154,22 +125,13 @@ jobs:
 `
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := pin.PinWorkflowFile(path, resolver); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
 
-		if string(got) != content {
-			t.Errorf("file was modified when it should not have been:\n%s", string(got))
-		}
+		require.NoError(t, err)
+		assert.Equal(t, content, string(got))
 	})
 
 	t.Run("skip branch references", func(t *testing.T) {
@@ -183,22 +145,13 @@ jobs:
 `
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := pin.PinWorkflowFile(path, resolver); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
 
-		if string(got) != content {
-			t.Errorf("file was modified when it should not have been:\n%s", string(got))
-		}
+		require.NoError(t, err)
+		assert.Equal(t, content, string(got))
 	})
 
 	t.Run("replace existing comments", func(t *testing.T) {
@@ -221,22 +174,13 @@ jobs:
 `
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := pin.PinWorkflowFile(path, resolver); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
 
-		if string(got) != expected {
-			t.Errorf("got:\n%s\nwant:\n%s", string(got), expected)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, expected, string(got))
 	})
 
 	t.Run("pin reusable workflow references", func(t *testing.T) {
@@ -255,22 +199,13 @@ jobs:
 `
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := pin.PinWorkflowFile(path, resolver); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
 
-		if string(got) != expected {
-			t.Errorf("got:\n%s\nwant:\n%s", string(got), expected)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, expected, string(got))
 	})
 
 	t.Run("pin action with sub-path", func(t *testing.T) {
@@ -293,22 +228,13 @@ jobs:
 `
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := pin.PinWorkflowFile(path, resolver); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
 
-		if string(got) != expected {
-			t.Errorf("got:\n%s\nwant:\n%s", string(got), expected)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, expected, string(got))
 	})
 
 	t.Run("preserve file when nothing to pin", func(t *testing.T) {
@@ -322,21 +248,12 @@ jobs:
 `
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := pin.PinWorkflowFile(path, resolver); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
 
 		got, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
 
-		if string(got) != content {
-			t.Errorf("file was modified when it should not have been:\n%s", string(got))
-		}
+		require.NoError(t, err)
+		assert.Equal(t, content, string(got))
 	})
 }

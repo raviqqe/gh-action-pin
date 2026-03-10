@@ -3,6 +3,8 @@ package main_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	pin "github.com/raviqqe/gh-action-pin"
 )
 
@@ -138,16 +140,11 @@ func TestParseUses(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, ok := pin.ParseUses(tt.line)
-			if ok != tt.ok {
-				t.Fatalf("ParseUses(%q): ok = %v, want %v", tt.line, ok, tt.ok)
-			}
 
-			if !ok {
-				return
-			}
+			assert.Equal(t, tt.ok, ok)
 
-			if got != tt.expected {
-				t.Errorf("ParseUses(%q) = %+v, want %+v", tt.line, got, tt.expected)
+			if ok {
+				assert.Equal(t, tt.expected, got)
 			}
 		})
 	}
@@ -200,9 +197,7 @@ func TestNeedsPin(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ref := pin.ActionReference{Version: tt.version}
 
-			if got := ref.NeedsPin(); got != tt.expected {
-				t.Errorf("NeedsPin() with version %q = %v, want %v", tt.version, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, ref.NeedsPin())
 		})
 	}
 }
@@ -227,9 +222,7 @@ func TestActionPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.ref.ActionPath(); got != tt.expected {
-				t.Errorf("ActionPath() = %q, want %q", got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, tt.ref.ActionPath())
 		})
 	}
 }
@@ -269,9 +262,7 @@ func TestIsHexString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := pin.IsHexString(tt.input); got != tt.expected {
-				t.Errorf("IsHexString(%q) = %v, want %v", tt.input, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, pin.IsHexString(tt.input))
 		})
 	}
 }
