@@ -1,0 +1,259 @@
+package main_test
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	pin "github.com/raviqqe/gh-action-pin"
+)
+
+type mockResolver struct {
+	versions map[string]struct {
+		hash        string
+		fullVersion string
+	}
+}
+
+func (resolver *mockResolver) Resolve(owner, repo, version string) (string, string, error) {
+	key := owner + "/" + repo + "@" + version
+
+	resolved, ok := resolver.versions[key]
+	if !ok {
+		return "", "", fmt.Errorf("unknown action: %s", key)
+	}
+
+	return resolved.hash, resolved.fullVersion, nil
+}
+
+func TestFindWorkflowFiles(t *testing.T) {
+	t.Run("find yaml and yml files", func(t *testing.T) {
+		root := t.TempDir()
+		workflowDir := filepath.Join(root, ".github", "workflows")
+
+		require.NoError(t, os.MkdirAll(workflowDir, 0755))
+
+		for _, name := range []string{"test.yaml", "build.yml", "notes.txt"} {
+			require.NoError(t, os.WriteFile(filepath.Join(workflowDir, name), []byte(""), 0644))
+		}
+
+		files, err := pin.FindWorkflowFiles(root)
+
+		require.NoError(t, err)
+		assert.Len(t, files, 2)
+	})
+
+	t.Run("return nil for missing workflow directory", func(t *testing.T) {
+		files, err := pin.FindWorkflowFiles(t.TempDir())
+
+		require.NoError(t, err)
+		assert.Nil(t, files)
+	})
+
+	t.Run("skip subdirectories", func(t *testing.T) {
+		root := t.TempDir()
+		workflowDir := filepath.Join(root, ".github", "workflows")
+
+		require.NoError(t, os.MkdirAll(filepath.Join(workflowDir, "subdir"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(workflowDir, "test.yaml"), []byte(""), 0644))
+
+		files, err := pin.FindWorkflowFiles(root)
+
+		require.NoError(t, err)
+		assert.Len(t, files, 1)
+	})
+}
+
+func TestPinWorkflowFile(t *testing.T) {
+	resolver := &mockResolver{
+		versions: map[string]struct {
+			hash        string
+			fullVersion string
+		}{
+			"actions/checkout@v6":              {hash: "aabbccdd00112233445566778899aabbccddeeff", fullVersion: "v6.2.3"},
+			"golangci/golangci-lint-action@v9": {hash: "1122334455667788990011223344556677889900", fullVersion: "v9.1.0"},
+			"owner/repo@v1":                    {hash: "ffeeddccbbaa99887766554433221100ffeeddcc", fullVersion: "v1.5.2"},
+			"owner/repo@v2":                    {hash: "0011223344556677889900112233445566778899", fullVersion: "v2.0.1"},
+		},
+	}
+
+	t.Run("pin actions with version tags", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: go build
+      - uses: golangci/golangci-lint-action@v9
+`
+
+		expected := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff # v6.2.3
+      - run: go build
+      - uses: golangci/golangci-lint-action@1122334455667788990011223344556677889900 # v9.1.0
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, expected, string(got))
+	})
+
+	t.Run("skip already pinned actions", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff # v6.2.3
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, content, string(got))
+	})
+
+	t.Run("skip branch references", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: owner/repo@main
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, content, string(got))
+	})
+
+	t.Run("replace existing comments", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6 # old comment
+`
+
+		expected := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff # v6.2.3
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, expected, string(got))
+	})
+
+	t.Run("pin reusable workflow references", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  ci:
+    uses: owner/repo/.github/workflows/ci.yml@v2
+`
+
+		expected := `name: test
+on: push
+jobs:
+  ci:
+    uses: owner/repo/.github/workflows/ci.yml@0011223344556677889900112233445566778899 # v2.0.1
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, expected, string(got))
+	})
+
+	t.Run("pin action with sub-path", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: owner/repo@v1
+`
+
+		expected := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: owner/repo@ffeeddccbbaa99887766554433221100ffeeddcc # v1.5.2
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, expected, string(got))
+	})
+
+	t.Run("preserve file when nothing to pin", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hello
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, content, string(got))
+	})
+}
