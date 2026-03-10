@@ -15,7 +15,8 @@ type VersionResolver interface {
 }
 
 type githubResolver struct {
-	cache map[string]resolvedVersion
+	previous bool
+	cache    map[string]resolvedVersion
 }
 
 type resolvedVersion struct {
@@ -23,9 +24,10 @@ type resolvedVersion struct {
 	fullVersion string
 }
 
-func newGithubResolver() *githubResolver {
+func newGithubResolver(previous bool) *githubResolver {
 	return &githubResolver{
-		cache: make(map[string]resolvedVersion),
+		previous: previous,
+		cache:    make(map[string]resolvedVersion),
 	}
 }
 
@@ -108,6 +110,14 @@ func (resolver *githubResolver) findHighestVersion(owner, repo, tagPrefix string
 	sort.Slice(versions, func(index, other int) bool {
 		return semver.Compare(versions[index], versions[other]) < 0
 	})
+
+	if resolver.previous {
+		if len(versions) < 2 {
+			return "", fmt.Errorf("no previous version found for %s/%s", owner, repo)
+		}
+
+		return versions[len(versions)-2], nil
+	}
 
 	return versions[len(versions)-1], nil
 }
