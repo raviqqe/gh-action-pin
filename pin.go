@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"golang.org/x/mod/semver"
 )
 
 func FindWorkflowFiles(root string) ([]string, error) {
@@ -53,23 +51,9 @@ func PinWorkflowFile(path string, resolver VersionResolver) error {
 			continue
 		}
 
-		version := action.Version
-
-		if !action.NeedsPin() {
-			version = action.CommentVersion()
-			if version == "" {
-				continue
-			}
-		}
-
-		spec, ok := ParseVersionSpec(version)
-		if ok && spec.IsFullSemver() {
-			version = semver.Major(version)
-		}
-
-		hash, fullVersion, err := resolver.Resolve(action.Owner, action.Repo, version)
+		hash, fullVersion, err := resolver.Resolve(action.Owner, action.Repo)
 		if err != nil {
-			return fmt.Errorf("resolving %s@%s: %w", action.ActionPath(), version, err)
+			return fmt.Errorf("resolving %s: %w", action.ActionPath(), err)
 		}
 
 		newLine := action.Prefix + action.ActionPath() + "@" + hash + " # " + fullVersion
