@@ -31,7 +31,7 @@ func run() error {
 		return err
 	}
 
-	files, err := findWorkflowFiles(root)
+	files, err := FindWorkflowFiles(root)
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func run() error {
 	resolver := newGithubResolver()
 
 	for _, file := range files {
-		if err := pinWorkflowFile(file, resolver); err != nil {
+		if err := PinWorkflowFile(file, resolver); err != nil {
 			return err
 		}
 	}

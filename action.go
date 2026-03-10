@@ -7,18 +7,18 @@ import (
 
 var usesPattern = regexp.MustCompile(`^(\s*-?\s*uses:\s+)(\S+)(.*)$`)
 
-type actionReference struct {
-	prefix  string
-	owner   string
-	repo    string
-	path    string
-	version string
+type ActionReference struct {
+	Prefix  string
+	Owner   string
+	Repo    string
+	Path    string
+	Version string
 }
 
-func parseUses(line string) (actionReference, bool) {
+func ParseUses(line string) (ActionReference, bool) {
 	matches := usesPattern.FindStringSubmatch(line)
 	if matches == nil {
-		return actionReference{}, false
+		return ActionReference{}, false
 	}
 
 	prefix := matches[1]
@@ -26,49 +26,49 @@ func parseUses(line string) (actionReference, bool) {
 
 	parts := strings.SplitN(spec, "@", 2)
 	if len(parts) != 2 || parts[1] == "" {
-		return actionReference{}, false
+		return ActionReference{}, false
 	}
 
 	actionPath := parts[0]
 	version := parts[1]
 
 	if strings.HasPrefix(actionPath, "./") || strings.HasPrefix(actionPath, "docker://") {
-		return actionReference{}, false
+		return ActionReference{}, false
 	}
 
 	segments := strings.SplitN(actionPath, "/", 3)
 	if len(segments) < 2 {
-		return actionReference{}, false
+		return ActionReference{}, false
 	}
 
-	ref := actionReference{
-		prefix:  prefix,
-		owner:   segments[0],
-		repo:    segments[1],
-		version: version,
+	ref := ActionReference{
+		Prefix:  prefix,
+		Owner:   segments[0],
+		Repo:    segments[1],
+		Version: version,
 	}
 
 	if len(segments) == 3 {
-		ref.path = "/" + segments[2]
+		ref.Path = "/" + segments[2]
 	}
 
 	return ref, true
 }
 
-func (ref actionReference) needsPin() bool {
-	if len(ref.version) == 40 && isHexString(ref.version) {
+func (ref ActionReference) NeedsPin() bool {
+	if len(ref.Version) == 40 && IsHexString(ref.Version) {
 		return false
 	}
 
-	_, ok := parseVersionSpec(ref.version)
+	_, ok := ParseVersionSpec(ref.Version)
 	return ok
 }
 
-func (ref actionReference) actionPath() string {
-	return ref.owner + "/" + ref.repo + ref.path
+func (ref ActionReference) ActionPath() string {
+	return ref.Owner + "/" + ref.Repo + ref.Path
 }
 
-func isHexString(str string) bool {
+func IsHexString(str string) bool {
 	for _, char := range str {
 		if (char < '0' || char > '9') && (char < 'a' || char > 'f') && (char < 'A' || char > 'F') {
 			return false

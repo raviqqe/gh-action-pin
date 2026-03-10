@@ -1,17 +1,22 @@
-package main
+package main_test
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+
+	pin "github.com/raviqqe/gh-action-pin"
 )
 
 type mockResolver struct {
-	versions map[string]resolvedVersion
+	versions map[string]struct {
+		hash        string
+		fullVersion string
+	}
 }
 
-func (resolver *mockResolver) resolve(owner, repo, version string) (string, string, error) {
+func (resolver *mockResolver) Resolve(owner, repo, version string) (string, string, error) {
 	key := owner + "/" + repo + "@" + version
 
 	resolved, ok := resolver.versions[key]
@@ -37,7 +42,7 @@ func TestFindWorkflowFiles(t *testing.T) {
 			}
 		}
 
-		files, err := findWorkflowFiles(root)
+		files, err := pin.FindWorkflowFiles(root)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -50,7 +55,7 @@ func TestFindWorkflowFiles(t *testing.T) {
 	t.Run("return nil for missing workflow directory", func(t *testing.T) {
 		root := t.TempDir()
 
-		files, err := findWorkflowFiles(root)
+		files, err := pin.FindWorkflowFiles(root)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -72,7 +77,7 @@ func TestFindWorkflowFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		files, err := findWorkflowFiles(root)
+		files, err := pin.FindWorkflowFiles(root)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,11 +90,14 @@ func TestFindWorkflowFiles(t *testing.T) {
 
 func TestPinWorkflowFile(t *testing.T) {
 	resolver := &mockResolver{
-		versions: map[string]resolvedVersion{
-			"actions/checkout@v6":                    {hash: "aabbccdd00112233445566778899aabbccddeeff", fullVersion: "v6.2.3"},
-			"golangci/golangci-lint-action@v9":       {hash: "1122334455667788990011223344556677889900", fullVersion: "v9.1.0"},
-			"owner/repo@v1": {hash: "ffeeddccbbaa99887766554433221100ffeeddcc", fullVersion: "v1.5.2"},
-			"owner/repo@v2": {hash: "0011223344556677889900112233445566778899", fullVersion: "v2.0.1"},
+		versions: map[string]struct {
+			hash        string
+			fullVersion string
+		}{
+			"actions/checkout@v6":              {hash: "aabbccdd00112233445566778899aabbccddeeff", fullVersion: "v6.2.3"},
+			"golangci/golangci-lint-action@v9": {hash: "1122334455667788990011223344556677889900", fullVersion: "v9.1.0"},
+			"owner/repo@v1":                    {hash: "ffeeddccbbaa99887766554433221100ffeeddcc", fullVersion: "v1.5.2"},
+			"owner/repo@v2":                    {hash: "0011223344556677889900112233445566778899", fullVersion: "v2.0.1"},
 		},
 	}
 
@@ -121,7 +129,7 @@ jobs:
 			t.Fatal(err)
 		}
 
-		if err := pinWorkflowFile(path, resolver); err != nil {
+		if err := pin.PinWorkflowFile(path, resolver); err != nil {
 			t.Fatal(err)
 		}
 
@@ -150,7 +158,7 @@ jobs:
 			t.Fatal(err)
 		}
 
-		if err := pinWorkflowFile(path, resolver); err != nil {
+		if err := pin.PinWorkflowFile(path, resolver); err != nil {
 			t.Fatal(err)
 		}
 
@@ -179,7 +187,7 @@ jobs:
 			t.Fatal(err)
 		}
 
-		if err := pinWorkflowFile(path, resolver); err != nil {
+		if err := pin.PinWorkflowFile(path, resolver); err != nil {
 			t.Fatal(err)
 		}
 
@@ -217,7 +225,7 @@ jobs:
 			t.Fatal(err)
 		}
 
-		if err := pinWorkflowFile(path, resolver); err != nil {
+		if err := pin.PinWorkflowFile(path, resolver); err != nil {
 			t.Fatal(err)
 		}
 
@@ -251,7 +259,7 @@ jobs:
 			t.Fatal(err)
 		}
 
-		if err := pinWorkflowFile(path, resolver); err != nil {
+		if err := pin.PinWorkflowFile(path, resolver); err != nil {
 			t.Fatal(err)
 		}
 
@@ -289,7 +297,7 @@ jobs:
 			t.Fatal(err)
 		}
 
-		if err := pinWorkflowFile(path, resolver); err != nil {
+		if err := pin.PinWorkflowFile(path, resolver); err != nil {
 			t.Fatal(err)
 		}
 
@@ -318,7 +326,7 @@ jobs:
 			t.Fatal(err)
 		}
 
-		if err := pinWorkflowFile(path, resolver); err != nil {
+		if err := pin.PinWorkflowFile(path, resolver); err != nil {
 			t.Fatal(err)
 		}
 

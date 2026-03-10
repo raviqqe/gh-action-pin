@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func findWorkflowFiles(root string) ([]string, error) {
+func FindWorkflowFiles(root string) ([]string, error) {
 	workflowDir := filepath.Join(root, ".github", "workflows")
 
 	entries, err := os.ReadDir(workflowDir)
@@ -36,7 +36,7 @@ func findWorkflowFiles(root string) ([]string, error) {
 	return files, nil
 }
 
-func pinWorkflowFile(path string, resolver versionResolver) error {
+func PinWorkflowFile(path string, resolver VersionResolver) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -46,17 +46,17 @@ func pinWorkflowFile(path string, resolver versionResolver) error {
 	changed := false
 
 	for index, line := range lines {
-		action, ok := parseUses(line)
-		if !ok || !action.needsPin() {
+		action, ok := ParseUses(line)
+		if !ok || !action.NeedsPin() {
 			continue
 		}
 
-		hash, fullVersion, err := resolver.resolve(action.owner, action.repo, action.version)
+		hash, fullVersion, err := resolver.Resolve(action.Owner, action.Repo, action.Version)
 		if err != nil {
-			return fmt.Errorf("resolving %s@%s: %w", action.actionPath(), action.version, err)
+			return fmt.Errorf("resolving %s@%s: %w", action.ActionPath(), action.Version, err)
 		}
 
-		lines[index] = action.prefix + action.actionPath() + "@" + hash + " # " + fullVersion
+		lines[index] = action.Prefix + action.ActionPath() + "@" + hash + " # " + fullVersion
 		changed = true
 	}
 

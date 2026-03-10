@@ -5,131 +5,11 @@ import (
 	"fmt"
 	"os/exec"
 	"sort"
-	"strconv"
 	"strings"
 )
 
-type versionResolver interface {
-	resolve(owner, repo, version string) (hash string, fullVersion string, err error)
-}
-
-type semver struct {
-	major int
-	minor int
-	patch int
-	raw   string
-}
-
-func parseSemver(tag string) (semver, bool) {
-	if !strings.HasPrefix(tag, "v") {
-		return semver{}, false
-	}
-
-	body := tag[1:]
-	parts := strings.SplitN(body, ".", 4)
-
-	if len(parts) != 3 {
-		return semver{}, false
-	}
-
-	major, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return semver{}, false
-	}
-
-	minor, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return semver{}, false
-	}
-
-	patch, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return semver{}, false
-	}
-
-	return semver{major: major, minor: minor, patch: patch, raw: tag}, true
-}
-
-func (left semver) less(right semver) bool {
-	if left.major != right.major {
-		return left.major < right.major
-	}
-
-	if left.minor != right.minor {
-		return left.minor < right.minor
-	}
-
-	return left.patch < right.patch
-}
-
-type versionSpec struct {
-	major    int
-	minor    int
-	patch    int
-	hasMinor bool
-	hasPatch bool
-}
-
-func parseVersionSpec(version string) (versionSpec, bool) {
-	if !strings.HasPrefix(version, "v") {
-		return versionSpec{}, false
-	}
-
-	body := version[1:]
-	parts := strings.Split(body, ".")
-
-	if len(parts) == 0 || len(parts) > 3 {
-		return versionSpec{}, false
-	}
-
-	major, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return versionSpec{}, false
-	}
-
-	spec := versionSpec{major: major}
-
-	if len(parts) >= 2 {
-		minor, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return versionSpec{}, false
-		}
-
-		spec.minor = minor
-		spec.hasMinor = true
-	}
-
-	if len(parts) == 3 {
-		patch, err := strconv.Atoi(parts[2])
-		if err != nil {
-			return versionSpec{}, false
-		}
-
-		spec.patch = patch
-		spec.hasPatch = true
-	}
-
-	return spec, true
-}
-
-func (spec versionSpec) matches(version semver) bool {
-	if version.major != spec.major {
-		return false
-	}
-
-	if spec.hasMinor && version.minor != spec.minor {
-		return false
-	}
-
-	if spec.hasPatch && version.patch != spec.patch {
-		return false
-	}
-
-	return true
-}
-
-func (spec versionSpec) isFullSemver() bool {
-	return spec.hasMinor && spec.hasPatch
+type VersionResolver interface {
+	Resolve(owner, repo, version string) (hash string, fullVersion string, err error)
 }
 
 type githubResolver struct {
@@ -147,21 +27,21 @@ func newGithubResolver() *githubResolver {
 	}
 }
 
-func (resolver *githubResolver) resolve(owner, repo, version string) (string, string, error) {
+func (resolver *githubResolver) Resolve(owner, repo, version string) (string, string, error) {
 	key := owner + "/" + repo + "@" + version
 
 	if cached, ok := resolver.cache[key]; ok {
 		return cached.hash, cached.fullVersion, nil
 	}
 
-	spec, ok := parseVersionSpec(version)
+	spec, ok := ParseVersionSpec(version)
 	if !ok {
 		return "", "", fmt.Errorf("invalid version: %s", version)
 	}
 
 	fullVersion := version
 
-	if !spec.isFullSemver() {
+	if !spec.IsFullSemver() {
 		resolved, err := resolver.findFullVersion(owner, repo, version, spec)
 		if err != nil {
 			return "", "", err
@@ -187,7 +67,7 @@ type gitRef struct {
 	} `json:"object"`
 }
 
-func (resolver *githubResolver) findFullVersion(owner, repo, version string, spec versionSpec) (string, error) {
+func (resolver *githubResolver) findFullVersion(owner, repo, version string, spec VersionSpec) (string, error) {
 	apiPath := fmt.Sprintf("repos/%s/%s/git/matching-refs/tags/%s.", owner, repo, version)
 
 	out, err := exec.Command("gh", "api", apiPath, "--paginate").Output()
@@ -200,17 +80,17 @@ func (resolver *githubResolver) findFullVersion(owner, repo, version string, spe
 		return "", fmt.Errorf("parsing tags response: %w", err)
 	}
 
-	var versions []semver
+	var versions []Semver
 
 	for _, ref := range refs {
 		tag := strings.TrimPrefix(ref.Ref, "refs/tags/")
 
-		parsed, ok := parseSemver(tag)
+		parsed, ok := ParseSemver(tag)
 		if !ok {
 			continue
 		}
 
-		if spec.matches(parsed) {
+		if spec.Matches(parsed) {
 			versions = append(versions, parsed)
 		}
 	}
@@ -220,10 +100,10 @@ func (resolver *githubResolver) findFullVersion(owner, repo, version string, spe
 	}
 
 	sort.Slice(versions, func(index, other int) bool {
-		return versions[index].less(versions[other])
+		return versions[index].Less(versions[other])
 	})
 
-	return versions[len(versions)-1].raw, nil
+	return versions[len(versions)-1].Raw, nil
 }
 
 func (resolver *githubResolver) resolveCommitHash(owner, repo, version string) (string, error) {
