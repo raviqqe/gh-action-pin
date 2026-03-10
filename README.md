@@ -12,6 +12,8 @@ Pin GitHub Actions with full semantic versions.
 gh-action-pin
 ```
 
+For more information, run `gh-action-pin -help`.
+
 ## License
 
 [The Unlicense](UNLICENSE)

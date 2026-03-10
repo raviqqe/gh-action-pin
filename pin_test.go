@@ -19,8 +19,8 @@ type mockResolver struct {
 	}
 }
 
-func (resolver *mockResolver) Resolve(owner, repo, version string) (string, string, error) {
-	key := owner + "/" + repo + "@" + version
+func (resolver *mockResolver) Resolve(owner, repo string) (string, string, error) {
+	key := owner + "/" + repo
 
 	resolved, ok := resolver.versions[key]
 	if !ok {
@@ -74,11 +74,9 @@ func TestPinWorkflowFile(t *testing.T) {
 			hash        string
 			fullVersion string
 		}{
-			"actions/checkout@v6":              {hash: "aabbccdd00112233445566778899aabbccddeeff", fullVersion: "v6.2.3"},
-			"golangci/golangci-lint-action@v9": {hash: "1122334455667788990011223344556677889900", fullVersion: "v9.1.0"},
-			"owner/repo@v1":                    {hash: "ffeeddccbbaa99887766554433221100ffeeddcc", fullVersion: "v1.5.2"},
-			"owner/repo@v2":                    {hash: "0011223344556677889900112233445566778899", fullVersion: "v2.0.1"},
-			"owner/repo@main":                  {hash: "aabb001122334455667788990011223344556677", fullVersion: "v2.0.1"},
+			"actions/checkout":              {hash: "aabbccdd00112233445566778899aabbccddeeff", fullVersion: "v6.2.3"},
+			"golangci/golangci-lint-action": {hash: "1122334455667788990011223344556677889900", fullVersion: "v9.1.0"},
+			"owner/repo":                    {hash: "0011223344556677889900112233445566778899", fullVersion: "v2.0.1"},
 		},
 	}
 
@@ -115,26 +113,6 @@ jobs:
 		assert.Equal(t, expected, string(got))
 	})
 
-	t.Run("skip already pinned actions", func(t *testing.T) {
-		content := `name: test
-on: push
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff # v6.2.3
-`
-
-		path := filepath.Join(t.TempDir(), "test.yaml")
-		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver))
-
-		got, err := os.ReadFile(path)
-
-		require.NoError(t, err)
-		assert.Equal(t, content, string(got))
-	})
-
 	t.Run("pin branch references", func(t *testing.T) {
 		content := `name: test
 on: push
@@ -151,7 +129,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: owner/repo@aabb001122334455667788990011223344556677 # v2.0.1
+      - uses: owner/repo@0011223344556677889900112233445566778899 # v2.0.1
 `
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
@@ -234,7 +212,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: owner/repo@ffeeddccbbaa99887766554433221100ffeeddcc # v1.5.2
+      - uses: owner/repo@0011223344556677889900112233445566778899 # v2.0.1
 `
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
@@ -245,6 +223,93 @@ jobs:
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, string(got))
+	})
+
+	t.Run("update hash-pinned actions", func(t *testing.T) {
+		updateResolver := &mockResolver{
+			versions: map[string]struct {
+				hash        string
+				fullVersion string
+			}{
+				"actions/checkout": {hash: "11111111111111111111aaaaaaaaaaaaaaaaaaaa", fullVersion: "v6.3.0"},
+			},
+		}
+
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff # v6.2.3
+`
+
+		expected := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11111111111111111111aaaaaaaaaaaaaaaaaaaa # v6.3.0
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, updateResolver))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, expected, string(got))
+	})
+
+	t.Run("update hash-pinned actions without comment", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff
+`
+
+		expected := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff # v6.2.3
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, expected, string(got))
+	})
+
+	t.Run("preserve file when already up to date", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff # v6.2.3
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, content, string(got))
 	})
 
 	t.Run("fail when resolver returns an error", func(t *testing.T) {

@@ -47,17 +47,20 @@ func PinWorkflowFile(path string, resolver VersionResolver) error {
 
 	for index, line := range lines {
 		action, ok := ParseUses(line)
-		if !ok || !action.NeedsPin() {
+		if !ok {
 			continue
 		}
 
-		hash, fullVersion, err := resolver.Resolve(action.Owner, action.Repo, action.Version)
+		hash, fullVersion, err := resolver.Resolve(action.Owner, action.Repo)
 		if err != nil {
-			return fmt.Errorf("resolving %s@%s: %w", action.ActionPath(), action.Version, err)
+			return fmt.Errorf("resolving %s: %w", action.ActionPath(), err)
 		}
 
-		lines[index] = action.Prefix + action.ActionPath() + "@" + hash + " # " + fullVersion
-		changed = true
+		newLine := action.Prefix + action.ActionPath() + "@" + hash + " # " + fullVersion
+		if lines[index] != newLine {
+			lines[index] = newLine
+			changed = true
+		}
 	}
 
 	if !changed {

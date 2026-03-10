@@ -11,7 +11,7 @@ import (
 )
 
 type VersionResolver interface {
-	Resolve(owner, repo, version string) (hash string, fullVersion string, err error)
+	Resolve(owner, repo string) (hash string, fullVersion string, err error)
 }
 
 type githubResolver struct {
@@ -31,14 +31,14 @@ func newGithubResolver(previous bool) *githubResolver {
 	}
 }
 
-func (resolver *githubResolver) Resolve(owner, repo, version string) (string, string, error) {
-	key := owner + "/" + repo + "@" + version
+func (resolver *githubResolver) Resolve(owner, repo string) (string, string, error) {
+	key := owner + "/" + repo
 
 	if cached, ok := resolver.cache[key]; ok {
 		return cached.hash, cached.fullVersion, nil
 	}
 
-	fullVersion, err := resolver.resolveFullVersion(owner, repo, version)
+	fullVersion, err := resolver.findHighestVersion(owner, repo)
 	if err != nil {
 		return "", "", err
 	}
@@ -53,19 +53,6 @@ func (resolver *githubResolver) Resolve(owner, repo, version string) (string, st
 	return hash, fullVersion, nil
 }
 
-func (resolver *githubResolver) resolveFullVersion(owner, repo, version string) (string, error) {
-	spec, ok := ParseVersionSpec(version)
-	if ok && spec.IsFullSemver() {
-		return version, nil
-	}
-
-	if ok {
-		return resolver.findHighestVersion(owner, repo, version+".", &spec)
-	}
-
-	return resolver.findHighestVersion(owner, repo, "v", nil)
-}
-
 type gitRef struct {
 	Ref    string `json:"ref"`
 	Object struct {
@@ -73,8 +60,8 @@ type gitRef struct {
 	} `json:"object"`
 }
 
-func (resolver *githubResolver) findHighestVersion(owner, repo, tagPrefix string, spec *VersionSpec) (string, error) {
-	apiPath := fmt.Sprintf("repos/%s/%s/git/matching-refs/tags/%s", owner, repo, tagPrefix)
+func (resolver *githubResolver) findHighestVersion(owner, repo string) (string, error) {
+	apiPath := fmt.Sprintf("repos/%s/%s/git/matching-refs/tags/v", owner, repo)
 
 	out, err := exec.Command("gh", "api", apiPath, "--paginate").Output()
 	if err != nil {
@@ -93,10 +80,6 @@ func (resolver *githubResolver) findHighestVersion(owner, repo, tagPrefix string
 
 		parsed, ok := ParseSemver(tag)
 		if !ok {
-			continue
-		}
-
-		if spec != nil && !spec.Matches(parsed) {
 			continue
 		}
 
