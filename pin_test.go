@@ -1,7 +1,9 @@
 package main_test
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,14 +19,19 @@ type mockResolver struct {
 		hash        string
 		fullVersion string
 	}
+	err error
 }
 
 func (resolver *mockResolver) Resolve(owner, repo string) (string, string, error) {
+	if resolver.err != nil {
+		return "", "", resolver.err
+	}
+
 	key := owner + "/" + repo
 
 	resolved, ok := resolver.versions[key]
 	if !ok {
-		return "", "", fmt.Errorf("unknown action: %s", key)
+		return "", "", fmt.Errorf("%w for %s", pin.VersionNotFoundError, key)
 	}
 
 	return resolved.hash, resolved.fullVersion, nil
@@ -105,7 +112,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver, io.Discard))
 
 		got, err := os.ReadFile(path)
 
@@ -134,7 +141,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver, io.Discard))
 
 		got, err := os.ReadFile(path)
 
@@ -163,7 +170,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver, io.Discard))
 
 		got, err := os.ReadFile(path)
 
@@ -188,7 +195,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver, io.Discard))
 
 		got, err := os.ReadFile(path)
 
@@ -217,7 +224,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver, io.Discard))
 
 		got, err := os.ReadFile(path)
 
@@ -255,7 +262,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, updateResolver))
+		require.NoError(t, pin.PinWorkflowFile(path, updateResolver, io.Discard))
 
 		got, err := os.ReadFile(path)
 
@@ -284,7 +291,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver, io.Discard))
 
 		got, err := os.ReadFile(path)
 
@@ -304,7 +311,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver, io.Discard))
 
 		got, err := os.ReadFile(path)
 
@@ -312,7 +319,48 @@ jobs:
 		assert.Equal(t, content, string(got))
 	})
 
+	t.Run("skip actions without semantic version tags", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: unknown/action@v1
+`
+
+		expected := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff # v6.2.3
+      - uses: unknown/action@v1
+`
+
+		warning := &bytes.Buffer{}
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver, warning))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, expected, string(got))
+		assert.Equal(t, "warning: no semantic version tag found for unknown/action\n", warning.String())
+	})
+
 	t.Run("fail when resolver returns an error", func(t *testing.T) {
+		errorResolver := &mockResolver{
+			versions: map[string]struct {
+				hash        string
+				fullVersion string
+			}{},
+		}
+		errorResolver.err = fmt.Errorf("API rate limit exceeded")
+
 		content := `name: test
 on: push
 jobs:
@@ -324,7 +372,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		assert.Error(t, pin.PinWorkflowFile(path, resolver))
+		assert.Error(t, pin.PinWorkflowFile(path, errorResolver, io.Discard))
 	})
 
 	t.Run("preserve file when nothing to pin", func(t *testing.T) {
@@ -339,7 +387,7 @@ jobs:
 
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-		require.NoError(t, pin.PinWorkflowFile(path, resolver))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver, io.Discard))
 
 		got, err := os.ReadFile(path)
 

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,7 +38,7 @@ func FindWorkflowFiles(root string) ([]string, error) {
 	return files, nil
 }
 
-func PinWorkflowFile(path string, resolver VersionResolver) error {
+func PinWorkflowFile(path string, resolver VersionResolver, warning io.Writer) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -51,7 +53,10 @@ func PinWorkflowFile(path string, resolver VersionResolver) error {
 		}
 
 		hash, version, err := resolver.Resolve(action.Owner, action.Repo)
-		if err != nil {
+		if errors.Is(err, VersionNotFoundError) {
+			fmt.Fprintln(warning, "warning:", err)
+			continue
+		} else if err != nil {
 			return fmt.Errorf("resolving %s: %w", action.ActionPath(), err)
 		}
 
