@@ -11,7 +11,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-var VersionNotFoundError = errors.New("no semantic version tag found")
+var ErrVersionNotFound = errors.New("no semantic version tag found")
 
 type VersionResolver interface {
 	Resolve(owner, repo string) (hash string, version string, err error)
@@ -89,7 +89,7 @@ func (resolver *githubResolver) findHighestVersion(owner, repo string) (string, 
 	}
 
 	if len(versions) == 0 {
-		return "", fmt.Errorf("%w for %s/%s", VersionNotFoundError, owner, repo)
+		return "", fmt.Errorf("%w for %s/%s", ErrVersionNotFound, owner, repo)
 	}
 
 	sort.Slice(versions, func(index, other int) bool {

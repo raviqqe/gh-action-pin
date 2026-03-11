@@ -53,7 +53,7 @@ func PinWorkflowFile(path string, resolver VersionResolver, warning io.Writer) e
 		}
 
 		hash, version, err := resolver.Resolve(action.Owner, action.Repo)
-		if errors.Is(err, VersionNotFoundError) {
+		if errors.Is(err, ErrVersionNotFound) {
 			fmt.Fprintln(warning, "warning:", err)
 			continue
 		} else if err != nil {

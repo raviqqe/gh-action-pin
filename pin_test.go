@@ -31,7 +31,7 @@ func (resolver *mockResolver) Resolve(owner, repo string) (string, string, error
 
 	resolved, ok := resolver.versions[key]
 	if !ok {
-		return "", "", fmt.Errorf("%w for %s", pin.VersionNotFoundError, key)
+		return "", "", fmt.Errorf("%w for %s", pin.ErrVersionNotFound, key)
 	}
 
 	return resolved.hash, resolved.fullVersion, nil
