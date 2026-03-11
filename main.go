@@ -21,7 +21,7 @@ func main() {
 	}
 
 	if err := run(*previous); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
