@@ -78,12 +78,11 @@ func (resolver *githubResolver) findHighestVersion(owner, repo string) (string, 
 	for _, ref := range refs {
 		tag := strings.TrimPrefix(ref.Ref, "refs/tags/")
 
-		parsed, ok := ParseSemver(tag)
-		if !ok {
+		if !IsSemver(tag) {
 			continue
 		}
 
-		versions = append(versions, parsed)
+		versions = append(versions, tag)
 	}
 
 	if len(versions) == 0 {
