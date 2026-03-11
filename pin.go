@@ -45,7 +45,7 @@ func PinWorkflowFile(path string, resolver VersionResolver) error {
 	lines := strings.Split(string(content), "\n")
 
 	for index, line := range lines {
-		action, ok := ParseUses(line)
+		action, ok := ParseActionUse(line)
 		if !ok {
 			continue
 		}
