@@ -11,7 +11,7 @@ import (
 )
 
 type VersionResolver interface {
-	Resolve(owner, repo string) (hash string, fullVersion string, err error)
+	Resolve(owner, repo string) (hash string, version string, err error)
 }
 
 type githubResolver struct {
@@ -20,8 +20,8 @@ type githubResolver struct {
 }
 
 type resolvedVersion struct {
-	hash        string
-	fullVersion string
+	hash    string
+	version string
 }
 
 func newGithubResolver(previous bool) *githubResolver {
@@ -35,22 +35,22 @@ func (resolver *githubResolver) Resolve(owner, repo string) (string, string, err
 	key := owner + "/" + repo
 
 	if cached, ok := resolver.cache[key]; ok {
-		return cached.hash, cached.fullVersion, nil
+		return cached.hash, cached.version, nil
 	}
 
-	fullVersion, err := resolver.findHighestVersion(owner, repo)
+	version, err := resolver.findHighestVersion(owner, repo)
 	if err != nil {
 		return "", "", err
 	}
 
-	hash, err := resolver.resolveCommitHash(owner, repo, fullVersion)
+	hash, err := resolver.resolveCommitHash(owner, repo, version)
 	if err != nil {
 		return "", "", err
 	}
 
-	resolver.cache[key] = resolvedVersion{hash: hash, fullVersion: fullVersion}
+	resolver.cache[key] = resolvedVersion{hash: hash, version: version}
 
-	return hash, fullVersion, nil
+	return hash, version, nil
 }
 
 type gitRef struct {
