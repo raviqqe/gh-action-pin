@@ -21,7 +21,7 @@ func main() {
 	}
 
 	if err := run(*previous); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -44,7 +44,7 @@ func run(previous bool) error {
 	resolver := newGithubResolver(previous)
 
 	for _, file := range files {
-		if err := PinWorkflowFile(file, resolver); err != nil {
+		if err := PinWorkflowFile(file, resolver, os.Stderr); err != nil {
 			return err
 		}
 	}

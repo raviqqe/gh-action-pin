@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
 	"sort"
@@ -10,8 +11,10 @@ import (
 	"golang.org/x/mod/semver"
 )
 
+var ErrVersionNotFound = errors.New("no semantic version tag found")
+
 type VersionResolver interface {
-	Resolve(owner, repo string) (hash string, fullVersion string, err error)
+	Resolve(owner, repo string) (hash string, version string, err error)
 }
 
 type githubResolver struct {
@@ -20,8 +23,8 @@ type githubResolver struct {
 }
 
 type resolvedVersion struct {
-	hash        string
-	fullVersion string
+	hash    string
+	version string
 }
 
 func newGithubResolver(previous bool) *githubResolver {
@@ -35,22 +38,22 @@ func (resolver *githubResolver) Resolve(owner, repo string) (string, string, err
 	key := owner + "/" + repo
 
 	if cached, ok := resolver.cache[key]; ok {
-		return cached.hash, cached.fullVersion, nil
+		return cached.hash, cached.version, nil
 	}
 
-	fullVersion, err := resolver.findHighestVersion(owner, repo)
+	version, err := resolver.findHighestVersion(owner, repo)
 	if err != nil {
 		return "", "", err
 	}
 
-	hash, err := resolver.resolveCommitHash(owner, repo, fullVersion)
+	hash, err := resolver.resolveCommitHash(owner, repo, version)
 	if err != nil {
 		return "", "", err
 	}
 
-	resolver.cache[key] = resolvedVersion{hash: hash, fullVersion: fullVersion}
+	resolver.cache[key] = resolvedVersion{hash: hash, version: version}
 
-	return hash, fullVersion, nil
+	return hash, version, nil
 }
 
 type gitRef struct {
@@ -78,16 +81,15 @@ func (resolver *githubResolver) findHighestVersion(owner, repo string) (string, 
 	for _, ref := range refs {
 		tag := strings.TrimPrefix(ref.Ref, "refs/tags/")
 
-		parsed, ok := ParseSemver(tag)
-		if !ok {
+		if !IsSemver(tag) {
 			continue
 		}
 
-		versions = append(versions, parsed)
+		versions = append(versions, tag)
 	}
 
 	if len(versions) == 0 {
-		return "", fmt.Errorf("no semantic version tag found for %s/%s", owner, repo)
+		return "", fmt.Errorf("%w for %s/%s", ErrVersionNotFound, owner, repo)
 	}
 
 	sort.Slice(versions, func(index, other int) bool {

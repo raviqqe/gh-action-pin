@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var usesPattern = regexp.MustCompile(`^(\s*-?\s*uses:\s+)(\S+)(.*)$`)
+var actionUsePattern = regexp.MustCompile(`^(\s*-?\s*uses:\s+)(\S+)(.*)$`)
 
 type ActionReference struct {
 	Prefix string
@@ -14,8 +14,8 @@ type ActionReference struct {
 	Path   string
 }
 
-func ParseUses(line string) (ActionReference, bool) {
-	matches := usesPattern.FindStringSubmatch(line)
+func ParseActionUse(line string) (ActionReference, bool) {
+	matches := actionUsePattern.FindStringSubmatch(line)
 	if matches == nil {
 		return ActionReference{}, false
 	}

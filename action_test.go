@@ -8,7 +8,7 @@ import (
 	pin "github.com/raviqqe/gh-action-pin"
 )
 
-func TestParseUses(t *testing.T) {
+func TestParseActionUse(t *testing.T) {
 	tests := []struct {
 		name     string
 		line     string
@@ -131,7 +131,7 @@ func TestParseUses(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, ok := pin.ParseUses(tt.line)
+			got, ok := pin.ParseActionUse(tt.line)
 
 			assert.Equal(t, tt.ok, ok)
 
