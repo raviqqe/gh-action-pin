@@ -10,9 +10,21 @@ import (
 )
 
 func FindWorkflowFiles(root string) ([]string, error) {
-	workflowDir := filepath.Join(root, ".github", "workflows")
+	workflowFiles, err := findYamlFiles(filepath.Join(root, ".github", "workflows"))
+	if err != nil {
+		return nil, err
+	}
 
-	entries, err := os.ReadDir(workflowDir)
+	actionFiles, err := findYamlFiles(filepath.Join(root, ".github", "actions"))
+	if err != nil {
+		return nil, err
+	}
+
+	return append(workflowFiles, actionFiles...), nil
+}
+
+func findYamlFiles(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -28,10 +40,8 @@ func FindWorkflowFiles(root string) ([]string, error) {
 			continue
 		}
 
-		name := entry.Name()
-
-		if strings.HasSuffix(name, ".yml") || strings.HasSuffix(name, ".yaml") {
-			files = append(files, filepath.Join(workflowDir, name))
+		if strings.HasSuffix(entry.Name(), ".yml") || strings.HasSuffix(entry.Name(), ".yaml") {
+			files = append(files, filepath.Join(dir, entry.Name()))
 		}
 	}
 
