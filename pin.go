@@ -10,12 +10,12 @@ import (
 )
 
 func FindWorkflowFiles(root string) ([]string, error) {
-	workflowFiles, err := findYamlFiles(filepath.Join(root, ".github", "workflows"))
+	workflowFiles, err := findYamlFiles(filepath.Join(root, ".github", "workflows", "*"))
 	if err != nil {
 		return nil, err
 	}
 
-	actionFiles, err := findYamlFiles(filepath.Join(root, ".github", "actions"))
+	actionFiles, err := findYamlFiles(filepath.Join(root, ".github", "actions", "*", "*"))
 	if err != nil {
 		return nil, err
 	}
@@ -23,25 +23,24 @@ func FindWorkflowFiles(root string) ([]string, error) {
 	return append(workflowFiles, actionFiles...), nil
 }
 
-func findYamlFiles(dir string) ([]string, error) {
-	entries, err := os.ReadDir(dir)
+func findYamlFiles(pattern string) ([]string, error) {
+	paths, err := filepath.Glob(pattern)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-
 		return nil, err
 	}
 
 	var files []string
 
-	for _, entry := range entries {
-		if entry.IsDir() {
+	for _, path := range paths {
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, err
+		} else if info.IsDir() {
 			continue
 		}
 
-		if strings.HasSuffix(entry.Name(), ".yml") || strings.HasSuffix(entry.Name(), ".yaml") {
-			files = append(files, filepath.Join(dir, entry.Name()))
+		if strings.HasSuffix(path, ".yml") || strings.HasSuffix(path, ".yaml") {
+			files = append(files, path)
 		}
 	}
 

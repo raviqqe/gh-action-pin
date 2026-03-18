@@ -74,9 +74,22 @@ func TestFindWorkflowFiles(t *testing.T) {
 		assert.Len(t, files, 1)
 	})
 
-	t.Run("find action files in action directory", func(t *testing.T) {
+	t.Run("skip action files directly in action directory", func(t *testing.T) {
 		root := t.TempDir()
 		actionDir := filepath.Join(root, ".github", "actions")
+
+		require.NoError(t, os.MkdirAll(actionDir, 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(actionDir, "action.yml"), []byte(""), 0644))
+
+		files, err := pin.FindWorkflowFiles(root)
+
+		require.NoError(t, err)
+		assert.Nil(t, files)
+	})
+
+	t.Run("find action files in nested action directory", func(t *testing.T) {
+		root := t.TempDir()
+		actionDir := filepath.Join(root, ".github", "actions", "my-action")
 
 		require.NoError(t, os.MkdirAll(actionDir, 0755))
 		require.NoError(t, os.WriteFile(filepath.Join(actionDir, "action.yml"), []byte(""), 0644))
@@ -90,7 +103,7 @@ func TestFindWorkflowFiles(t *testing.T) {
 	t.Run("find files in both workflow and action directories", func(t *testing.T) {
 		root := t.TempDir()
 		workflowDir := filepath.Join(root, ".github", "workflows")
-		actionDir := filepath.Join(root, ".github", "actions")
+		actionDir := filepath.Join(root, ".github", "actions", "my-action")
 
 		require.NoError(t, os.MkdirAll(workflowDir, 0755))
 		require.NoError(t, os.MkdirAll(actionDir, 0755))
