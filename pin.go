@@ -35,9 +35,7 @@ func findYamlFiles(pattern string) ([]string, error) {
 		info, err := os.Stat(path)
 		if err != nil {
 			return nil, err
-		}
-
-		if info.IsDir() {
+		} else if info.IsDir() {
 			continue
 		}
 
