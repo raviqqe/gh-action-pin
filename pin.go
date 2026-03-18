@@ -23,28 +23,26 @@ func FindWorkflowFiles(root string) ([]string, error) {
 	return append(workflowFiles, actionFiles...), nil
 }
 
-func findYamlFiles(patterns ...string) ([]string, error) {
+func findYamlFiles(pattern string) ([]string, error) {
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, err
+	}
+
 	var files []string
 
-	for _, pattern := range patterns {
-		matches, err := filepath.Glob(pattern)
+	for _, match := range matches {
+		info, err := os.Stat(match)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, match := range matches {
-			info, err := os.Stat(match)
-			if err != nil {
-				return nil, err
-			}
+		if info.IsDir() {
+			continue
+		}
 
-			if info.IsDir() {
-				continue
-			}
-
-			if strings.HasSuffix(match, ".yml") || strings.HasSuffix(match, ".yaml") {
-				files = append(files, match)
-			}
+		if strings.HasSuffix(match, ".yml") || strings.HasSuffix(match, ".yaml") {
+			files = append(files, match)
 		}
 	}
 
