@@ -24,15 +24,15 @@ func FindWorkflowFiles(root string) ([]string, error) {
 }
 
 func findYamlFiles(pattern string) ([]string, error) {
-	matches, err := filepath.Glob(pattern)
+	paths, err := filepath.Glob(pattern)
 	if err != nil {
 		return nil, err
 	}
 
 	var files []string
 
-	for _, match := range matches {
-		info, err := os.Stat(match)
+	for _, path := range paths {
+		info, err := os.Stat(path)
 		if err != nil {
 			return nil, err
 		}
@@ -41,8 +41,8 @@ func findYamlFiles(pattern string) ([]string, error) {
 			continue
 		}
 
-		if strings.HasSuffix(match, ".yml") || strings.HasSuffix(match, ".yaml") {
-			files = append(files, match)
+		if strings.HasSuffix(path, ".yml") || strings.HasSuffix(path, ".yaml") {
+			files = append(files, path)
 		}
 	}
 
