@@ -10,6 +10,7 @@ It pins all actions' versions in the Dependabot compatible format at:
 
 - `.github/actions/*/*.yaml`
 - `.github/workflows/*/*.yaml`
+- `action.yaml` at the repository root
 
 ## Usage
 
