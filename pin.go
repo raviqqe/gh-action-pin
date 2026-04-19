@@ -10,17 +10,22 @@ import (
 )
 
 func FindWorkflowFiles(root string) ([]string, error) {
-	workflowFiles, err := findYamlFiles(filepath.Join(root, ".github", "workflows", "*"))
-	if err != nil {
-		return nil, err
+	var files []string
+
+	for _, pattern := range []string{
+		filepath.Join(root, ".github", "workflows", "*"),
+		filepath.Join(root, ".github", "actions", "*", "*"),
+		filepath.Join(root, "action.yaml"),
+	} {
+		matched, err := findYamlFiles(pattern)
+		if err != nil {
+			return nil, err
+		}
+
+		files = append(files, matched...)
 	}
 
-	actionFiles, err := findYamlFiles(filepath.Join(root, ".github", "actions", "*", "*"))
-	if err != nil {
-		return nil, err
-	}
-
-	return append(workflowFiles, actionFiles...), nil
+	return files, nil
 }
 
 func findYamlFiles(pattern string) ([]string, error) {

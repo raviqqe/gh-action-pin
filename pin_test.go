@@ -115,6 +115,28 @@ func TestFindWorkflowFiles(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, files, 2)
 	})
+
+	t.Run("find action manifest at repository root", func(t *testing.T) {
+		root := t.TempDir()
+
+		require.NoError(t, os.WriteFile(filepath.Join(root, "action.yaml"), []byte(""), 0644))
+
+		files, err := pin.FindWorkflowFiles(root)
+
+		require.NoError(t, err)
+		assert.Equal(t, []string{filepath.Join(root, "action.yaml")}, files)
+	})
+
+	t.Run("ignore unrelated yaml files at repository root", func(t *testing.T) {
+		root := t.TempDir()
+
+		require.NoError(t, os.WriteFile(filepath.Join(root, "config.yaml"), []byte(""), 0644))
+
+		files, err := pin.FindWorkflowFiles(root)
+
+		require.NoError(t, err)
+		assert.Nil(t, files)
+	})
 }
 
 func TestPinWorkflowFile(t *testing.T) {
