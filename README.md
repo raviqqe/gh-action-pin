@@ -12,6 +12,8 @@ It pins all actions' versions in the Dependabot compatible format at:
 - `.github/workflows/*/*.yaml`
 - `action.yaml` at the repository root
 
+Actions without semantic version tags are pinned to commit hashes of their current references instead.
+
 ## Usage
 
 ```sh

@@ -12,6 +12,7 @@ type ActionReference struct {
 	Owner  string
 	Repo   string
 	Path   string
+	Ref    string
 }
 
 func ParseActionUse(line string) (ActionReference, bool) {
@@ -43,6 +44,7 @@ func ParseActionUse(line string) (ActionReference, bool) {
 		Prefix: prefix,
 		Owner:  segments[0],
 		Repo:   segments[1],
+		Ref:    parts[1],
 	}
 
 	if len(segments) == 3 {

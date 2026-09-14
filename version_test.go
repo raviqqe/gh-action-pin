@@ -72,3 +72,53 @@ func TestIsSemver(t *testing.T) {
 		})
 	}
 }
+
+func TestIsCommitHash(t *testing.T) {
+	tests := []struct {
+		name     string
+		ref      string
+		expected bool
+	}{
+		{
+			name:     "full commit hash",
+			ref:      "aabbccdd00112233445566778899aabbccddeeff",
+			expected: true,
+		},
+		{
+			name:     "short commit hash",
+			ref:      "a1b2c3d",
+			expected: false,
+		},
+		{
+			name:     "too long commit hash",
+			ref:      "aabbccdd00112233445566778899aabbccddeeff0",
+			expected: false,
+		},
+		{
+			name:     "non-hexadecimal characters",
+			ref:      "g011223344556677889900112233445566778899",
+			expected: false,
+		},
+		{
+			name:     "branch",
+			ref:      "main",
+			expected: false,
+		},
+		{
+			name:     "version tag",
+			ref:      "v6.2.3",
+			expected: false,
+		},
+		{
+			name:     "empty",
+			ref:      "",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, pin.IsCommitHash(tt.ref))
+		})
+	}
+}
