@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const version = "0.3.4"
+const version = "0.3.5"
 
 func main() {
 	showVersion := flag.Bool("version", false, "show version")
