@@ -15,6 +15,7 @@ var ErrVersionNotFound = errors.New("no semantic version tag found")
 
 type VersionResolver interface {
 	Resolve(owner, repo string) (hash string, version string, err error)
+	ResolveCommitHash(owner, repo, ref string) (string, error)
 }
 
 type githubResolver struct {
@@ -46,7 +47,7 @@ func (resolver *githubResolver) Resolve(owner, repo string) (string, string, err
 		return "", "", err
 	}
 
-	hash, err := resolver.resolveCommitHash(owner, repo, version)
+	hash, err := resolver.ResolveCommitHash(owner, repo, version)
 	if err != nil {
 		return "", "", err
 	}
@@ -107,12 +108,12 @@ func (resolver *githubResolver) findHighestVersion(owner, repo string) (string, 
 	return versions[len(versions)-1], nil
 }
 
-func (resolver *githubResolver) resolveCommitHash(owner, repo, version string) (string, error) {
-	apiPath := fmt.Sprintf("repos/%s/%s/commits/%s", owner, repo, version)
+func (resolver *githubResolver) ResolveCommitHash(owner, repo, ref string) (string, error) {
+	apiPath := fmt.Sprintf("repos/%s/%s/commits/%s", owner, repo, ref)
 
 	out, err := exec.Command("gh", "api", apiPath, "--jq", ".sha").Output()
 	if err != nil {
-		return "", fmt.Errorf("resolving commit hash for %s/%s@%s: %w", owner, repo, version, err)
+		return "", fmt.Errorf("resolving commit hash for %s/%s@%s: %w", owner, repo, ref, err)
 	}
 
 	return strings.TrimSpace(string(out)), nil

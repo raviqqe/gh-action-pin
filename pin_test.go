@@ -19,7 +19,8 @@ type mockResolver struct {
 		hash        string
 		fullVersion string
 	}
-	err error
+	hashes map[string]string
+	err    error
 }
 
 func (resolver *mockResolver) Resolve(owner, repo string) (string, string, error) {
@@ -35,6 +36,17 @@ func (resolver *mockResolver) Resolve(owner, repo string) (string, string, error
 	}
 
 	return resolved.hash, resolved.fullVersion, nil
+}
+
+func (resolver *mockResolver) ResolveCommitHash(owner, repo, ref string) (string, error) {
+	key := owner + "/" + repo + "@" + ref
+
+	hash, ok := resolver.hashes[key]
+	if !ok {
+		return "", fmt.Errorf("no commit found for %s", key)
+	}
+
+	return hash, nil
 }
 
 func TestFindWorkflowFiles(t *testing.T) {
@@ -148,6 +160,9 @@ func TestPinWorkflowFile(t *testing.T) {
 			"actions/checkout":              {hash: "aabbccdd00112233445566778899aabbccddeeff", fullVersion: "v6.2.3"},
 			"golangci/golangci-lint-action": {hash: "1122334455667788990011223344556677889900", fullVersion: "v9.1.0"},
 			"owner/repo":                    {hash: "0011223344556677889900112233445566778899", fullVersion: "v2.0.1"},
+		},
+		hashes: map[string]string{
+			"unknown/action@v1": "ffeeddccbbaa99887766554433221100ffeeddcc",
 		},
 	}
 
@@ -383,7 +398,7 @@ jobs:
 		assert.Equal(t, content, string(got))
 	})
 
-	t.Run("skip actions without semantic version tags", func(t *testing.T) {
+	t.Run("pin actions without semantic version tags to commit hashes", func(t *testing.T) {
 		content := `name: test
 on: push
 jobs:
@@ -401,7 +416,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@aabbccdd00112233445566778899aabbccddeeff # v6.2.3
-      - uses: unknown/action@v1
+      - uses: unknown/action@ffeeddccbbaa99887766554433221100ffeeddcc # v1
 `
 
 		warning := &bytes.Buffer{}
@@ -413,6 +428,28 @@ jobs:
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, string(got))
+		assert.Equal(t, "warning: no semantic version tag found for unknown/action\n", warning.String())
+	})
+
+	t.Run("preserve hash-pinned actions without semantic version tags", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: unknown/action@ffeeddccbbaa99887766554433221100ffeeddcc # v1
+`
+
+		warning := &bytes.Buffer{}
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, pin.PinWorkflowFile(path, resolver, warning))
+
+		got, err := os.ReadFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, content, string(got))
 		assert.Equal(t, "warning: no semantic version tag found for unknown/action\n", warning.String())
 	})
 
@@ -437,6 +474,21 @@ jobs:
 		path := filepath.Join(t.TempDir(), "test.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
 		assert.Error(t, pin.PinWorkflowFile(path, errorResolver, io.Discard))
+	})
+
+	t.Run("fail when commit hash resolution fails", func(t *testing.T) {
+		content := `name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: unknown/action@main
+`
+
+		path := filepath.Join(t.TempDir(), "test.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		assert.Error(t, pin.PinWorkflowFile(path, resolver, io.Discard))
 	})
 
 	t.Run("preserve file when nothing to pin", func(t *testing.T) {
